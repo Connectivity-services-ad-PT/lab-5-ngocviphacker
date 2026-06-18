@@ -112,6 +112,13 @@ class AlertEventPayload(BaseModel):
     channels: Optional[List[str]] = Field(default=None, max_length=4)
     metadata: Optional[dict] = None
 
+class AIVisionAlertPayload(BaseModel):
+    source: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(..., min_length=1, max_length=200)
+    message: str = Field(..., min_length=1, max_length=1000)
+    severity: str = Field(..., min_length=1, max_length=50)
+    data: Optional[dict] = None
+
 class NotificationDelivery(BaseModel):
     deliveryId: str
     alertId: str
@@ -504,3 +511,46 @@ def get_notification_status(notificationId: str):
             problem_type="https://notification.campus.local/problems/not-found",
         ),
     )
+
+
+@app.post(
+    "/api/v1/alerts",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def handle_ai_vision_alert(payload: AIVisionAlertPayload):
+    # Log the received alert from AI Vision
+    print(f"[AI Vision Alert] Received: {payload}")
+    
+    # Map to our notification logic
+    event_id = str(uuid.uuid4())
+    alert_id = f"ALT-VISION-{int(datetime.now(timezone.utc).timestamp())}"
+    sent_at = datetime.now(timezone.utc).isoformat()
+    
+    # Map severity to channel routing
+    severity_upper = payload.severity.upper()
+    if severity_upper == "CRITICAL":
+        channels = ["telegram", "email", "app", "sms"]
+    elif severity_upper == "HIGH":
+        channels = ["telegram", "email", "app"]
+    elif severity_upper == "MEDIUM":
+        channels = ["email", "app"]
+    else:
+        channels = ["app"]
+        
+    for channel in channels:
+        delivery_id = str(uuid.uuid4())
+        log_notification_delivery(
+            delivery_id=delivery_id,
+            alert_id=alert_id,
+            event_id=event_id,
+            channel=channel,
+            status_str="delivered",
+            sent_at=sent_at
+        )
+        
+    return {
+        "eventId": event_id,
+        "status": "queued",
+        "processedAt": sent_at
+    }
+
