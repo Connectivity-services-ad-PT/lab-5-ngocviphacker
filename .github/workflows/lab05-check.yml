@@ -62,6 +62,7 @@ jobs:
 
       - name: Test DB readiness (pg_isready)
         run: |
+          sed -i 's/\r$//' .env
           set -a; source .env; set +a
           docker compose exec -T db pg_isready -U "$POSTGRES_USER"
 
