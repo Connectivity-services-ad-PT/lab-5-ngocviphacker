@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 SERVICE_NAME = os.getenv("SERVICE_NAME", "notification-service")
@@ -19,11 +20,24 @@ POSTGRES_USER = os.getenv("POSTGRES_USER", "lab05")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "lab05pass")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "notificationdb")
 
+AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://ai-service:9000")
+
+
 app = FastAPI(
     title="FIT4110 Lab 05 - Notification Service",
     version=SERVICE_VERSION,
     description="Notification Service API with PostgreSQL and AI integration.",
 )
+
+# CORS configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # In-memory storage fallback if DB is not available
 IN_MEMORY_NOTIFICATIONS = {}
@@ -207,9 +221,16 @@ def log_notification_delivery(delivery_id: str, alert_id: str, event_id: str, ch
             "errorMessage": "No error"
         }
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def root():
-    return {"message": "Notification Service API is running"}
+    template_path = os.path.join(os.path.dirname(__file__), "templates", "dashboard.html")
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except Exception as e:
+        return HTMLResponse(content=f"<h3>Error loading dashboard: {e}</h3>", status_code=500)
+
 
 @app.get("/health")
 def health() -> dict:
@@ -226,7 +247,7 @@ def health() -> dict:
 
     ai_ok = False
     try:
-        r = requests.get("http://ai-service:9000/health", timeout=2.0)
+        r = requests.get(f"{AI_SERVICE_URL}/health", timeout=2.0)
         if r.status_code == 200:
             ai_ok = True
     except Exception as e:
@@ -266,7 +287,7 @@ def handle_alert_created(payload: AlertEventPayload):
     # Perform integration check by calling AI-service
     ai_prediction = None
     try:
-        r = requests.post("http://ai-service:9000/predict", json={}, timeout=2.0)
+        r = requests.post(f"{AI_SERVICE_URL}/predict", json={}, timeout=2.0)
         if r.status_code == 200:
             ai_prediction = r.json()
             print(f"[AI Info] Classification prediction: {ai_prediction}")
@@ -383,10 +404,61 @@ def handle_alert_resolved(payload: AlertEventPayload):
     }
 
 @app.get(
+    "/api/v1/notifications",
+    response_model=List[NotificationDelivery],
+    dependencies=[Depends(verify_bearer_token)],
+)
+def list_notifications():
+    # Query database
+    select_query = """
+    SELECT delivery_id, alert_id, event_id, channel, status, sent_at, delivered_at, error_message
+    FROM notifications
+    ORDER BY sent_at DESC
+    LIMIT 50;
+    """
+    rows = execute_db_query(select_query, fetch=True)
+    if rows is not None:
+        result = []
+        for row in rows:
+            result.append(
+                NotificationDelivery(
+                    deliveryId=row[0],
+                    alertId=row[1],
+                    eventId=row[2],
+                    channel=row[3],
+                    status=row[4],
+                    sentAt=row[5],
+                    deliveredAt=row[6],
+                    errorMessage=row[7]
+                )
+            )
+        return result
+
+    # Fallback to memory
+    result = []
+    for item in IN_MEMORY_NOTIFICATIONS.values():
+        result.append(
+            NotificationDelivery(
+                deliveryId=item["deliveryId"],
+                alertId=item["alertId"],
+                eventId=item["eventId"],
+                channel=item["channel"],
+                status=item["status"],
+                sentAt=item["sentAt"],
+                deliveredAt=item["deliveredAt"],
+                errorMessage=item["errorMessage"]
+            )
+        )
+    # Sort memory items by sentAt desc
+    result.sort(key=lambda x: x.sentAt, reverse=True)
+    return result[:50]
+
+@app.get(
     "/notifications/{notificationId}",
     response_model=NotificationDelivery,
     dependencies=[Depends(verify_bearer_token)],
 )
+
 def get_notification_status(notificationId: str):
     # Query database
     select_query = """
