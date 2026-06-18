@@ -40,7 +40,7 @@ services:
     networks:
       - team-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lab05}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lab05} -d ${POSTGRES_DB:-notificationdb}"]
       interval: 10s
       timeout: 5s
       retries: 5
