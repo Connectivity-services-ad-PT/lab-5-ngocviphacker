@@ -110,8 +110,8 @@ paths:
                 value:
                   eventId: '550e8400-e29b-41d4-a716-446655440000'
                   eventType: 'alert.created'
-                  alertId: 'ALT-2026-05-19-001'
-                  correlationId: 'COR-2026-05-19-001'
+                  alertId: '6644f568-85df-4913-b959-50df1616d58b'
+                  correlationId: '80cddcc0-72e8-41da-8425-22a263f11254'
                   source: 'core-business-service'
                   severity: 'HIGH'
                   alertVersion: 1
@@ -189,8 +189,8 @@ paths:
                 value:
                   eventId: '550e8400-e29b-41d4-a716-446655440002'
                   eventType: 'alert.escalated'
-                  alertId: 'ALT-2026-05-19-001'
-                  correlationId: 'COR-2026-05-19-001'
+                  alertId: '6644f568-85df-4913-b959-50df1616d58b'
+                  correlationId: '80cddcc0-72e8-41da-8425-22a263f11254'
                   source: 'core-business-service'
                   severity: 'CRITICAL'
                   alertVersion: 2
@@ -260,8 +260,8 @@ paths:
                 value:
                   eventId: '550e8400-e29b-41d4-a716-446655440003'
                   eventType: 'alert.resolved'
-                  alertId: 'ALT-2026-05-19-001'
-                  correlationId: 'COR-2026-05-19-001'
+                  alertId: '6644f568-85df-4913-b959-50df1616d58b'
+                  correlationId: '80cddcc0-72e8-41da-8425-22a263f11254'
                   source: 'core-business-service'
                   severity: 'HIGH'
                   alertVersion: 3
@@ -340,7 +340,7 @@ paths:
                 success:
                   value:
                     deliveryId: '550e8400-e29b-41d4-a716-446655440100'
-                    alertId: 'ALT-2026-05-19-001'
+                    alertId: '6644f568-85df-4913-b959-50df1616d58b'
                     eventId: '550e8400-e29b-41d4-a716-446655440000'
                     channel: 'telegram'
                     status: 'delivered'
@@ -350,7 +350,7 @@ paths:
                 failed:
                   value:
                     deliveryId: '550e8400-e29b-41d4-a716-446655440101'
-                    alertId: 'ALT-2026-05-19-001'
+                    alertId: '6644f568-85df-4913-b959-50df1616d58b'
                     eventId: '550e8400-e29b-41d4-a716-446655440000'
                     channel: 'sms'
                     status: 'failed'
@@ -399,16 +399,14 @@ components:
           description: Loại event được gửi
         alertId:
           type: string
-          description: ID của alert trong Core Business (e.g., ALT-2026-05-19-001)
-          minLength: 1
-          maxLength: 100
+          format: uuid
+          description: ID của alert trong Core Business (UUID format)
         correlationId:
           type: string
+          format: uuid
           description: |
-            ID để correlate các request từ cùng một business transaction.
+            ID để correlate các request từ cùng một business transaction (UUID format).
             Giúp tracing end-to-end.
-          minLength: 1
-          maxLength: 100
         source:
           type: string
           description: Service phát sinh event.
@@ -470,7 +468,7 @@ components:
             $ref: '#/components/schemas/NotificationTarget'
           description: |
             Danh sách cấu hình chi tiết cho mỗi channel.
-            Nếu không cung cấp, service sẽ dùng routing mặc định theo `channels`.
+            If không cung cấp, service sẽ dùng routing mặc định theo `channels`.
           minItems: 0
         metadata:
           type: object
@@ -500,7 +498,8 @@ components:
           description: ID duy nhất của lần gửi notification
         alertId:
           type: string
-          description: ID của alert liên quan
+          format: uuid
+          description: ID của alert liên quan (UUID format)
         eventId:
           type: string
           format: uuid
